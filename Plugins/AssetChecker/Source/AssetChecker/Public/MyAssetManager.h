@@ -45,5 +45,6 @@ private:
 	void OnAsyncAssetLoaded(FSoftObjectPath Path);
 	void OnPackageLoaded(const FName& PackageName, UPackage* LoadedPackage);
 
+	FString	CurrentLoadPackage;
 	TArray<FString> NewLoadedAssets;
 };

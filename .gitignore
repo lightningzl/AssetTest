@@ -6,3 +6,8 @@ DerivedDataCache
 Intermediate
 Plugins/AssetChecker/Intermediate
 Content/Medieval_Environment
+*.dll
+*.pdb
+Binaries/Win64/UE4Editor-Win64-DebugGame.modules
+*.modules
+*.modules

@@ -55,8 +55,13 @@ public:
 		static FString PrintFunction(const UFunction* FunctionObj, EToolPrintFlags::Type PrintType = EToolPrintFlags::All, FString Prefix = "");
 	
 		static FString PrintProperty(const FProperty* Property, const UObject* Object, EToolPrintFlags::Type PrintType = EToolPrintFlags::All, FString Prefix = "");
-	//UFUNCTION(BlueprintCallable, Category = ToolLibrary)
-	//	static FString PrintMetaDataMap(const TMap<FName, FString>* MetaDataMap, EToolPrintFlags::Type PrintType, FString Prefix);
+	UFUNCTION(BlueprintCallable, Category = ToolLibrary)
+		static FString PrintParents(const UObject* Object);
+	UFUNCTION(BlueprintCallable, Category = ToolLibrary)
+		static FString GetClassHierarchyString(const UStruct* StructClass);
+#if WITH_METADATA
+		static FString PrintMetaDataMap(const TMap<FName, FString>* MetaDataMap, EToolPrintFlags::Type PrintType, FString Prefix);
+#endif
 	UFUNCTION(BlueprintCallable, Category = ToolLibrary)
 		static bool EnumHasAnyFlags(const EToolPrintFlags::Type PrintType, const EToolPrintFlags::Type CheckType);
 

@@ -9,31 +9,36 @@ FString UToolLibrary::PrintObject(const UObject* Object, EToolPrintFlags::Type P
 	{
 		return "";
 	}
-	FString Result = PrintObjectSelf(Object, PrintType, Prefix);
+	FString Result;
 	bool IsMetaType = false;
 
 	if (const UEnum* EnumClass = Cast<const UEnum>(Object))
 	{
-		Result += PrintEnumSelf(EnumClass, PrintType, Prefix);
+		Result = PrintEnumSelf(EnumClass, PrintType, Prefix);
 		IsMetaType = true;
 	}
 
 	if (const UScriptStruct* StructClass = Cast<const UScriptStruct>(Object))
 	{
-		Result += PrintStructSelf(StructClass, nullptr, PrintType, Prefix);
+		Result = PrintStructSelf(StructClass, nullptr, PrintType, Prefix);
 		IsMetaType = true;
 	}
 
 	if (const UClass* ClassObj = Cast<const UClass>(Object))
 	{
-		Result += PrintClassSelf(ClassObj, nullptr, PrintType, Prefix);
+		Result = PrintClassSelf(ClassObj, nullptr, PrintType, Prefix);
 		IsMetaType = true;
 	}
 
 	if (const UFunction* Func = Cast<const UFunction>(Object))
 	{
-		Result += PrintFunction(Func, PrintType, Prefix);
+		Result = PrintFunction(Func, PrintType, Prefix);
 		IsMetaType = true;
+	}
+
+	if (!IsMetaType)
+	{
+		Result = PrintObjectSelf(Object, PrintType, Prefix);
 	}
 
 	if (!IsMetaType && EnumHasAnyFlags(PrintType, EToolPrintFlags::CLass))
@@ -61,28 +66,71 @@ FString UToolLibrary::PrintObject(const UObject* Object, EToolPrintFlags::Type P
 FString UToolLibrary::PrintObjectSelf(const UObject* Object, EToolPrintFlags::Type PrintType, FString Prefix)
 {
 	FString Result;
-	Result += FString::Printf(TEXT("%s<%s\t%s\t%s>\n"), *Prefix, *Object->GetName(), *Object->GetClass()->GetName(), *Object->GetPathName());
+	Result += FString::Printf(TEXT("%s(%s\t%s\t%s)\n"), *Prefix, *Object->GetName(), *GetClassHierarchyString(Object->GetClass()), *Object->GetPathName());
 	return Result;
 }
 
 FString UToolLibrary::PrintEnumSelf(const UObject* Object, EToolPrintFlags::Type PrintType, FString Prefix)
 {
-	return "";
+	FString Result;
+	Result += FString::Printf(TEXT("%s<%s\t%s\t%s>\n"), *Prefix, *Object->GetName(), *GetClassHierarchyString(Object->GetClass()), *Object->GetPathName());
+	return Result;
 }
 
 FString UToolLibrary::PrintStructSelf(const UScriptStruct* StructObj, const UObject* Object, EToolPrintFlags::Type PrintType, FString Prefix)
 {
-	return "";
+	FString Result;
+	Result += FString::Printf(TEXT("%s[%s\t%s\t%s]\n"), *Prefix, *StructObj->GetName(), *GetClassHierarchyString(StructObj->GetClass()), *StructObj->GetPathName());
+	Result += Prefix;
+	Result += "{\n";
+
+	for (TFieldIterator<FProperty> It(StructObj); It; ++It)
+	{
+		if (FProperty* Property = CastField<FProperty>(*It))
+		{
+			if (Property->GetOwnerClass()->GetName() == StructObj->GetName())
+			{
+				Result += PrintProperty(Property, StructObj, PrintType, Prefix + "\t");
+				Result += "\n";
+			}
+		}
+	}
+
+	Result += Prefix;
+	Result += "}\n";
+
+	return Result;
 }
 
 FString UToolLibrary::PrintClassSelf(const UClass* ClassObj, const UObject* Object, EToolPrintFlags::Type PrintType, FString Prefix)
 {
-	return "";
+	FString Result;
+	Result += FString::Printf(TEXT("%s[%s\t%s\t%s]\n"), *Prefix, *ClassObj->GetName(), *GetClassHierarchyString(ClassObj->GetClass()), *ClassObj->GetPathName());
+	Result += Prefix;
+	Result += "{\n";
+	for (TFieldIterator<FProperty> It(ClassObj); It; ++It)
+	{
+		if (FProperty* Property = CastField<FProperty>(*It))
+		{
+			if (Property->GetOwnerClass()->GetName() == ClassObj->GetName())
+			{
+				Result += PrintProperty(Property, ClassObj, PrintType, Prefix + "\t");
+				Result += "\n";
+			}
+		}
+	}
+
+	Result += Prefix;
+	Result += "}\n";
+
+	return Result;
 }
 
 FString UToolLibrary::PrintFunction(const UFunction* FunctionObj, EToolPrintFlags::Type PrintType, FString Prefix)
 {
-	return "";
+	FString Result;
+	Result += FString::Printf(TEXT("%s[%s\t%s\t%s]\n"), *Prefix, *FunctionObj->GetName(), *GetClassHierarchyString(FunctionObj->GetClass()), *FunctionObj->GetPathName());
+	return Result;
 }
 
 FString UToolLibrary::PrintProperty(const FProperty* Property, const UObject* Object, EToolPrintFlags::Type PrintType, FString Prefix)
@@ -95,6 +143,12 @@ FString UToolLibrary::PrintProperty(const FProperty* Property, const UObject* Ob
 		bool IsOutParam = (Property->PropertyFlags & CPF_OutParm) != 0;
 		bool IsReturnParam = (Property->PropertyFlags & CPF_ReturnParm) != 0;
 
+#if WITH_METADATA
+		if (EnumHasAnyFlags(PrintType, EToolPrintFlags::WithMetaData))
+		{
+			Result += PrintMetaDataMap(Property->GetMetaDataMap(), PrintType, Prefix);
+		}
+#endif
 		if (IsReturnParam)
 		{
 			Result += Prefix + Property->GetCPPType();
@@ -113,6 +167,12 @@ FString UToolLibrary::PrintProperty(const FProperty* Property, const UObject* Ob
 	}
 	else
 	{
+#if WITH_METADATA
+		if (EnumHasAnyFlags(PrintType, EToolPrintFlags::WithMetaData))
+		{
+			Result += PrintMetaDataMap(Property->GetMetaDataMap(), PrintType, Prefix);
+		}
+#endif
 		Result += Prefix;
 		Result += Property->GetCPPType();
 		Result += " ";
@@ -122,6 +182,69 @@ FString UToolLibrary::PrintProperty(const FProperty* Property, const UObject* Ob
 	return Result;
 }
 
+FString UToolLibrary::PrintParents(const UObject* Object)
+{
+	if (nullptr == Object || nullptr == Object->GetClass())
+	{
+		return "";
+	}
+
+	const UClass* StructClass = Object->GetClass();
+	TArray<FString> ClassNames;
+	ClassNames.Add(StructClass->GetName());
+	UStruct* SuperClass = StructClass->GetSuperStruct();
+	while (SuperClass)
+	{
+		ClassNames.Add(SuperClass->GetName());
+		SuperClass = SuperClass->GetSuperStruct();
+	}
+	return FString::Join(ClassNames, TEXT("->"));
+}
+
+FString UToolLibrary::GetClassHierarchyString(const UStruct* StructClass)
+{
+	if (nullptr == StructClass)
+	{
+		return "";
+	}
+
+	TArray<FString> ClassNames;
+	ClassNames.Add(StructClass->GetName());
+	UStruct* SuperClass = StructClass->GetSuperStruct();
+	while (SuperClass)
+	{
+		ClassNames.Add(SuperClass->GetName());
+		SuperClass = SuperClass->GetSuperStruct();
+	}
+	return FString::Join(ClassNames, TEXT("->"));
+}
+
+#if WITH_METADATA
+FString UToolLibrary::PrintMetaDataMap(const TMap<FName, FString>* MetaDataMap, EToolPrintFlags::Type PrintType, FString Prefix)
+{
+	FString Result;
+	Result += Prefix;
+	Result += "[";
+
+	if (MetaDataMap != nullptr && MetaDataMap->Num() > 0)
+	{
+		for (const auto& i : *MetaDataMap)
+		{
+			FName Key = i.Key;
+			FString Value = i.Value;
+			Result += Key.ToString();
+			Result += " = ";
+			Result += Value;
+			Result += " , ";
+		}
+	}
+
+	Result += "]\n";
+
+	return Result;
+}
+#endif
+
 bool UToolLibrary::EnumHasAnyFlags(const EToolPrintFlags::Type PrintType, const EToolPrintFlags::Type CheckType)
 {
 	switch (PrintType)
@@ -130,7 +253,8 @@ bool UToolLibrary::EnumHasAnyFlags(const EToolPrintFlags::Type PrintType, const 
 		return true;
 	case EToolPrintFlags::PackageDefault:
 		if (CheckType == EToolPrintFlags::Recursive
-			|| CheckType == EToolPrintFlags::PackageDefault)
+			|| CheckType == EToolPrintFlags::PackageDefault
+			|| CheckType == EToolPrintFlags::WithMetaData)
 		{
 			return true;
 		}

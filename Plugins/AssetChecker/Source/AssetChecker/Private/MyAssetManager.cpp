@@ -48,6 +48,8 @@ FString UMyAssetManager::MyAsyncLoadObject(FSoftObjectPath Path, FOnPackageLoade
 {
 	FString result;
 	result += FString::Printf(TEXT("StartLoad:\t%s\n"), *Path.ToString());
+	CurrentLoadPackage = Path.ToString();
+	//LoadPackageAsync(CurrentLoadPackage, FLoadPackageAsyncDelegate::CreateLambda([=]() ));
 	return result;
 }
 
@@ -82,7 +84,26 @@ FString UMyAssetManager::MyLoadObject(FString Path)
 
 FString UMyAssetManager::MyLoadPackage(FString Path)
 {
-	return "";
+	FString Result;
+	NewLoadedAssets.Empty();
+	UPackage* Obj = LoadPackage(nullptr, *Path, LOAD_None);
+	if (Obj != nullptr)
+	{
+		Result += FString::Printf(TEXT("Loaded:\t%s\n"), *Obj->GetFullName());
+
+		NewLoadedAssets.Remove(Obj->GetFullName());
+		for (const FString& Str : NewLoadedAssets)
+		{
+			Result += FString::Printf(TEXT("NewLoaded:\t%s\n"), *Str);
+		}
+		FString TempStr = UToolLibrary::PrintObject(Obj, EToolPrintFlags::PackageDefault);
+		UE_LOG(LogAssetTest, Warning, TEXT("\n%s\n"), *TempStr);
+	}
+	else
+	{
+		Result += FString::Printf(TEXT("NotFound:\t%s\n"), *Path);
+	}
+	return Result;
 }
 
 FString UMyAssetManager::MyFindObject(FString Path)
