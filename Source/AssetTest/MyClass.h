@@ -10,8 +10,11 @@
  * 
  */
 UCLASS()
-class ASSETTEST_API UMyClass : public UObject
+class ASSETTEST_API UMyClass : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
-	
+public:
+	virtual void Initialize(FSubsystemCollectionBase& Collection);
+	UFUNCTION(BlueprintCallable, Category = "MyClass", meta = (WorldContext = "WorldContextObject"))
+		void ShowWidget(const UObject* WorldContextObject);
 };
