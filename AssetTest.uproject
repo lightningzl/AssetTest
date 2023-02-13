@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "{F06D242A-4D4A-43D3-8619-F0AF7BDB007B}",
+	"EngineAssociation": "5.1",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -12,12 +12,6 @@
 				"Engine",
 				"CoreUObject"
 			]
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "HoudiniEngine",
-			"Enabled": true
 		}
 	]
 }
